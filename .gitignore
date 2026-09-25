@@ -1,0 +1,7 @@
+node_modules/
+.env
+__pycache__/
+*.pyc
+backend/SROIE2019/
+.DS_Store
+.ipynb_checkpoints/
