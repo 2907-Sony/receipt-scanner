@@ -2,14 +2,17 @@ import io
 import pytesseract
 from PIL import Image, ImageOps
 
-
 def extract_text(contents):
     image = Image.open(io.BytesIO(contents))
     image = ImageOps.exif_transpose(image)
     image = image.convert("L")
     image = ImageOps.autocontrast(image)
 
-    if image.width < 1500:
+    # Keep memory low on the free tier: shrink huge photos, only upscale small ones
+    if image.width > 1600:
+        ratio = 1600 / image.width
+        image = image.resize((1600, int(image.height * ratio)), Image.Resampling.LANCZOS)
+    elif image.width < 1000:
         image = image.resize((image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
 
     raw_text = pytesseract.image_to_string(image, config="--psm 6")
