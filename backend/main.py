@@ -86,8 +86,8 @@ def find_date(lines):
 
 
 @app.post("/upload")
-async def upload_receipt(file: UploadFile = File(...)):
-    contents = await file.read()
+def upload_receipt(file: UploadFile = File(...)):
+    contents = file.file.read()
     extracted_text = extract_text(contents)
     print("Extracted text:", extracted_text)
     parsed_data = parse_receipt(extracted_text)
