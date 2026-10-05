@@ -1,12 +1,13 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import easyocr
 from parser import parse_receipt 
 from database import SessionLocal
 from models import Receipt, ReceiptItem
 from datetime import datetime
 import spacy
+import re
 from ner_parser import parse_receipt_ner
+from tesseract_parser import extract_text
 
 
 app = FastAPI()
@@ -20,22 +21,48 @@ app.add_middleware(
 
 ner_model = spacy.load("receipt_ner_model")
 
-reader = easyocr.Reader(['en'])
 
 date_formats = ["%B %d %Y", "%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y"]
+
+def find_total(lines):
+    for line in lines:
+        match = re.match(r"\s*total\b.*?(\d[\d,]*\.\d{2})", line, re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return None
 
 
 @app.post("/upload")
 async def upload_receipt(file: UploadFile = File(...)):
     contents = await file.read()
-    result = reader.readtext(contents)
-    extracted_text = [text for (bbox, text, prob) in result]
+    extracted_text = extract_text(contents)
+    print("Extracted text:", extracted_text)
     parsed_data = parse_receipt(extracted_text)
     ner_result = parse_receipt_ner(extracted_text, ner_model)
 
     # Fallback for store_name and total: prefer NER, fall back to regex
-    final_store_name = ner_result["store_name"] if ner_result["store_name"] is not None else parsed_data["store_name"]
-    final_total_str = ner_result["total"] if ner_result["total"] is not None else parsed_data["total"]
+    ner_store = ner_result["store_name"]
+    if ner_store is not None and len(ner_store.split()) <= 5:
+        final_store_name = ner_store
+    else:
+        final_store_name = parsed_data["store_name"]
+
+
+    line_total = find_total(extracted_text)
+
+    if ner_result["total"] is not None:
+        final_total_str = ner_result["total"]
+    elif line_total is not None:
+        final_total_str = line_total
+    else:
+        final_total_str = parsed_data["total"]
+    
+    
+
+    
+
+    
+    
 
     # Date: try NER's date first, and only fall back to regex if NER's date fails to PARSE
     parsed_date = None
@@ -56,8 +83,13 @@ async def upload_receipt(file: UploadFile = File(...)):
             except ValueError:
                 continue
 
-    cleaned_total = final_total_str.replace(",", "").replace("$", "")
-    parsed_total = float(cleaned_total)
+    total_match = re.search(r"\d[\d,]*\.\d{2}", final_total_str or "")
+    if total_match is None:
+        raise HTTPException(status_code=422, detail="Could not find a total amount on this receipt")
+    parsed_total = float(total_match.group().replace(",", ""))
+
+    print("Regex result:", parsed_data)
+    print("NER result:", ner_result)
 
     db = SessionLocal()
 
