@@ -8,6 +8,7 @@ import spacy
 import re
 from ner_parser import parse_receipt_ner
 from tesseract_parser import extract_text
+from difflib import get_close_matches
 
 
 app = FastAPI()
@@ -43,6 +44,14 @@ def find_known_store(lines):
     text = " ".join(lines).lower()
     for store in known_stores:
         if store.lower() in text:
+            return store
+
+    # OCR often drops or swaps a letter (dolarama), so allow a close match
+    words = re.findall(r"[a-z]+", text)
+    for store in known_stores:
+        if " " in store or len(store) < 6:
+            continue
+        if get_close_matches(store.lower(), words, n=1, cutoff=0.85):
             return store
     return None
 
