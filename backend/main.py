@@ -85,7 +85,8 @@ def find_date(lines):
                 return datetime(int(iso.group(1)), int(iso.group(2)), int(iso.group(3))).date()
             except ValueError:
                 pass
-        slash = re.search(r"(\d{1,2})/(\d{1,2})/\d?(\d{2})\b", text)
+        # OCR sometimes reads the second "/" as a "7" (09/14726 instead of 09/14/26)
+        slash = re.search(r"(\d{1,2})/(\d{1,2})[/7]?\d?(\d{2})\b", text)
         if slash:
             try:
                 return datetime(2000 + int(slash.group(3)), int(slash.group(1)), int(slash.group(2))).date()
