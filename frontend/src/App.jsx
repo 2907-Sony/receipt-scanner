@@ -3,12 +3,15 @@ import receiptImage from "./assets/Payment_Bill.png";
 import { Camera, Store, DollarSign } from "lucide-react";
 import "./App.css";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentView, setCurrentView] = useState("upload");
   const [searchTerm, setSearchTerm] = useState("");
   const [receipts, setReceipts] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const cameraInputRef = useRef(null);
 
   const handleScan = async () => {
@@ -20,23 +23,31 @@ function App() {
     const formData = new FormData();
     formData.append("file", selectedFile);
 
+    setScanning(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/upload", {
+      const response = await fetch(`${API_URL}/upload`, {
         method: "POST",
         body: formData,
       });
+      if (!response.ok) {
+        alert("Could not read this receipt. Try a clearer, flatter photo.");
+        return;
+      }
       const data = await response.json();
-      console.log(data);
+      fetchReceiptDetail(data.receipt_id);
     } catch (error) {
       console.error("Upload failed:", error);
+      alert("Upload failed. The server may be waking up, try again in a minute.");
+    } finally {
+      setScanning(false);
     }
   };
 
   const fetchReceipts = async () => {
     try {
       const url = searchTerm
-        ? `http://127.0.0.1:8000/receipts/search?store_name=${searchTerm}`
-        : `http://127.0.0.1:8000/receipts`;
+        ? `${API_URL}/receipts/search?store_name=${encodeURIComponent(searchTerm)}`
+        : `${API_URL}/receipts`;
       const response = await fetch(url);
       const data = await response.json();
       setReceipts(data);
@@ -47,7 +58,7 @@ function App() {
 
   const fetchReceiptDetail = async (id) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/receipts/${id}`);
+      const response = await fetch(`${API_URL}/receipts/${id}`);
       const data = await response.json();
       setSelectedReceipt(data);
       setCurrentView("detail");
@@ -158,6 +169,7 @@ function App() {
 
               <button
                 onClick={handleScan}
+                disabled={scanning}
                 style={{
                   width: "100%",
                   marginTop: "1.25rem",
@@ -170,7 +182,7 @@ function App() {
                   fontWeight: 500,
                 }}
               >
-                Scan receipt
+                {scanning ? "Scanning... (can take up to a minute)" : "Scan receipt"}
               </button>
               <button
                 onClick={() => {
