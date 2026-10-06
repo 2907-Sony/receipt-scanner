@@ -9,9 +9,9 @@ def extract_text(contents):
     image = ImageOps.autocontrast(image)
 
     # Keep memory low on the free tier: shrink huge photos, only upscale small ones
-    if image.width > 1600:
-        ratio = 1600 / image.width
-        image = image.resize((1600, int(image.height * ratio)), Image.Resampling.LANCZOS)
+    if image.width > 2200:
+        ratio = 2200 / image.width
+        image = image.resize((2200, int(image.height * ratio)), Image.Resampling.LANCZOS)
     elif image.width < 1000:
         image = image.resize((image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
 
